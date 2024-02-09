@@ -1,0 +1,29 @@
+[project]
+name = "monoid-representations"
+version = "0.1.0"
+description = "Representations and Fast Fourier Transforms for groups and monoids in PyTorch."
+authors = [
+    { name = "Dashiell Stander", email = "dash.stander@gmail.com" }
+]
+dependencies = [
+    "torch>=2.0",
+]
+readme = "README.md"
+requires-python = ">= 3.10"
+
+[project.scripts]
+hello = "monoid_representations:hello"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = []
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/monoid_representations"]
