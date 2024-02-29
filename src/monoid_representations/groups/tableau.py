@@ -178,7 +178,7 @@ def _fill_unfinished_tableau(tableau, numbers):
 def enumerate_standard_tableau(partition_shape: tuple[int]) -> list[YoungTableau]:
     _check_shape(partition_shape)
     n = sum(partition_shape)
-    base_tableau = [[-1] * l for l in partition_shape]
+    base_tableau = [[-1] * base_len for base_len in partition_shape]
     numbers = list(range(n))
     numbers.reverse()
     base_tableau[0][0] = numbers.pop()

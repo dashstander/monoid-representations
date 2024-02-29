@@ -1,8 +1,8 @@
 from itertools import product
 import torch
-from .irreps import SnIrrep
-from .permutations import Permutation
-from .tableau import generate_partitions
+from .groups.sn_irreps import SnIrrep
+from .groups.permutations import Permutation
+from .groups.tableau import generate_partitions
 
 
 def _dot(fx, rho):
@@ -44,6 +44,10 @@ frob = torch.vmap(_frob_norm, in_dims=0)
 
 def calc_power(ft, group_order):
     return {k: (frob(v) / group_order**2)  for k, v in ft.items()}
+
+
+
+def project_on_irrep(fn_vals, irrep)
 
 
 def slow_sn_ft_1d(fn_vals, n):
