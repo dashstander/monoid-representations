@@ -2,6 +2,7 @@ from copy import deepcopy
 from functools import reduce
 from itertools import product
 import math
+import numpy as np
 from operator import mul
 import torch
 
@@ -68,6 +69,9 @@ class DihedralElement:
         else:
             return reduce(mul, [deepcopy(self) for _ in range(x)])
 
+    def index(self) -> int:
+        return 2 * self.rot + self.ref
+
 
 def generate_subgroup(generators, n):
     group_size = 0
@@ -82,10 +86,14 @@ def generate_subgroup(generators, n):
 
 
 def dihedral_conjugacy_classes(n: int):
+
     conj_classes = [(0, 0), (0, 1)]
-    if n % 2 == 0:
-        conj_classes += [((2, 0), (0, 1)), ((2, 1), (0, 1))]
-    conj_classes += [(i, 0) for i in range(1, n)]
+    if n % 2 == 1:
+        m = (n - 1) // 2
+    else:
+        m = (n - 2) // 2 
+        conj_classes += [((2, 0), (0, 1)), ((2, 1), (1, 1))]
+    conj_classes += [(i, 0) for i in range(1, m+1)]
     return conj_classes
 
 
@@ -103,18 +111,18 @@ class DihedralIrrep:
         return {r.sigma: (-1**r.ref) * torch.ones((1,)) for r in self.group}
     
     def _subgroup_irrep(self, sg):
-        return {r.sigma: -1 if r in sg else 1 for r in self.group}
+        return {r.sigma: 1 if r.sigma in sg else -1 for r in self.group}
     
     def _matrix_irrep(self, k):
         mats = {}
         mats[(0, 0)] = torch.eye(2)
-        ref = torch.array([[1.0, 0.0], [0.0, -1.0]], dtype=torch.float32)
+        ref = torch.tensor([[1.0, 0.0], [0.0, -1.0]], dtype=torch.float32)
         mats[(0, 1)] = ref
         two_pi_n = 2 * torch.pi / self.n
         for idx in range(1, self.n):
-            sin = torch.sin(two_pi_n * idx * k)
-            cos = torch.sin(two_pi_n * idx * k)
-            m = torch.tensor([[cos, -1.0 * sin], [sin, cos]])
+            sin = np.sin(two_pi_n * idx * k)
+            cos = np.cos(two_pi_n * idx * k)
+            m = torch.tensor([[cos, -1.0 * sin], [sin, cos]], dtype=torch.float32)
             mats[(idx, 0)] = m
             mats[(idx, 1)] = ref @ m
         return mats
