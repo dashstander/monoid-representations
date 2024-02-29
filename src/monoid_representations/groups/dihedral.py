@@ -111,12 +111,12 @@ class DihedralIrrep:
         ref = torch.array([[1.0, 0.0], [0.0, -1.0]], dtype=torch.float32)
         mats[(0, 1)] = ref
         two_pi_n = 2 * torch.pi / self.n
-        for l in range(1, self.n):
-            sin = torch.sin(two_pi_n * l * k)
-            cos = torch.sin(two_pi_n * l * k)
+        for idx in range(1, self.n):
+            sin = torch.sin(two_pi_n * idx * k)
+            cos = torch.sin(two_pi_n * idx * k)
             m = torch.tensor([[cos, -1.0 * sin], [sin, cos]])
-            mats[(l, 0)] = m
-            mats[(l, 1)] = ref @ m
+            mats[(idx, 0)] = m
+            mats[(idx, 1)] = ref @ m
         return mats
     
     def matrix_representations(self):

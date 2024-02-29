@@ -46,10 +46,6 @@ def calc_power(ft, group_order):
     return {k: (frob(v) / group_order**2)  for k, v in ft.items()}
 
 
-
-def project_on_irrep(fn_vals, irrep)
-
-
 def slow_sn_ft_1d(fn_vals, n):
     all_partitions = generate_partitions(n)
     all_irreps = [SnIrrep(n, p) for p in all_partitions]
