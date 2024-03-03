@@ -145,3 +145,28 @@ class DihedralIrrep:
                 f'Somehow {self.conjugacy_class} is not a proper conjugacy class....'
             )
 
+
+class ProductDihedralIrrep:
+
+    def __init__(self, n: int, m: int, conjugacy_classes):
+        
+        assert len(conjugacy_classes) == m
+        
+        self.m = m
+        self.n = n
+        self.conjugacy_class = conjugacy_classes
+        self.group = [element for element in product(DihedralElement.full_group(n), repeat=m)]
+        self.irreps = [
+            DihedralIrrep(n, conj_class).matrix_representations() for conj_class in conjugacy_classes
+        ]
+
+    def matrix_representations(self):
+
+        reps = {}
+
+        for elements in self.group:
+            key = tuple(el.sigma for el in elements)
+            matrices = [self.irreps[i][el] for i, el in enumerate(key)]
+            reps[key] = reduce(torch.kron, matrices)
+        return reps
+

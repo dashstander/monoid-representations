@@ -1,8 +1,11 @@
 from itertools import product
 import torch
+from .groups.dihedral import DihedralElement, DihedralIrrep, ProductDihedralIrrep, dihedral_conjugacy_classes
 from .groups.sn_irreps import SnIrrep
 from .groups.permutations import Permutation
 from .groups.tableau import generate_partitions
+
+
 
 
 def _dot(fx, rho):
@@ -105,3 +108,9 @@ def sn_fourier_basis_2d(ft, n, device):
             fourier_decomp.append(trace)
         ift_decomps.append(torch.cat(fourier_decomp).unsqueeze(0))
     return torch.cat(ift_decomps) / group_order
+
+
+def slow_n_dihedral_fourier(fn_vals, n, m):
+    pass
+    #all_conjugacy_classes = [conj for conj in  product(dihedral_conjugacy_classes(n), repeat=m)]
+    #irreps = ProductDihedralIrrep()
