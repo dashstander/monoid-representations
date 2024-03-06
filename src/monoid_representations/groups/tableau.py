@@ -2,14 +2,6 @@ from copy import deepcopy
 from functools import cache, total_ordering
 
 
-def _check_shape(partition_shape):
-    for i in range(len(partition_shape) - 1):
-        j = i + 1
-        if partition_shape[j] > partition_shape[i]:
-            raise ValueError(
-                f'Partition {partition_shape} is not in decreasing order.'
-            )
-
 def _subpartitions(part):
     assert len(part) >= 2
     new_parts = []
@@ -61,6 +53,67 @@ def _generate_partitions(n):
                 ) for p in _generate_partitions(k)
             )
     return partitions
+
+
+def partitions_beneath(partition):
+    n = sum(partition)
+    results = {partition: set()}
+
+    def generate_partitions(lattice_partition):
+        num_pieces = len(lattice_partition)
+        
+        if lattice_partition not in results:
+            results[lattice_partition] = set()
+            
+        if num_pieces == n:
+            results[lattice_partition].add(lattice_partition[1:])
+            return
+
+        current_partition = list(lattice_partition)
+        current_partition.append(0)
+        
+        for i, curr_val in enumerate(current_partition):
+            diffs = [curr_val - other for other in current_partition[i+1:]]
+
+            if len(diffs) == 0:
+                break
+                
+            if len(diffs) == 1 and curr_val == 1:
+                new_partition = deepcopy(current_partition[:-2])
+                results[lattice_partition].add(tuple(new_partition))
+                continue    
+                    
+            #print(current_partition, curr_val, diffs)
+
+            if diffs[0] == 0:
+                continue
+
+            
+            for j, diff in enumerate(diffs):
+                pos = i + j + 1
+                val = current_partition[pos]
+                #assert (curr_val - val == diff), val
+                if (curr_val - val > 1) and (current_partition[pos-1] - val > 0):
+                    new_partition = deepcopy(current_partition)
+                    new_partition[i] -= 1
+                    new_partition[pos] += 1
+                    
+                    if new_partition[-1] == 0:
+                        new_partition.pop(-1)
+
+                    if len(new_partition) > 1:
+                        generate_partitions(tuple(new_partition))
+
+                    if new_partition[-1] == 1:
+                        results[lattice_partition].add(tuple(new_partition[:-1]))
+                    elif new_partition[-1] > 1:
+                        new_partition[-1] -= 1
+                        results[lattice_partition].add(tuple(new_partition))
+                    else:
+                        raise ValueError('We never should have reached this spot')
+
+    generate_partitions(partition)
+    return {k: list(v) for k, v in results.items()}
 
 
 def check_parity(partition):
@@ -146,41 +199,24 @@ class YoungTableau:
         return row_dist + col_dist
 
 
-def _enumerate_next_placements(unfinished_syt):
-    indices = []
-    for i, row in enumerate(unfinished_syt):
-        for j, el in enumerate(row):
-            if el >= 0:
-                continue
-            elif (i == 0) or (unfinished_syt[i-1][j] >= 0):
-                indices.append((i, j))
-                break
-    return indices
+def generate_standard_young_tableaux(lambda_partition):
+    n = sum(lambda_partition)
+    tableau = [[None] * x for x in lambda_partition]
+    tableau[0][0] = 1
+    
+    def fill_tableau(tab, num):
+        if num == n + 1:
+            yield tuple([tuple(row) for row in tab])
+        else:
+            for i, row in enumerate(tab):
+                for j, val in enumerate(row):
+                    if val is None:
+                        #print(val, i, j)
+                        above_smaller = (i == 0) or ((tab[i-1][j] is not None) and (tab[i-1][j] < num))
+                        right_smaller = (j == 0) or ((tab[i][j-1] is not None) and (tab[i][j-1] < num))
+                        if above_smaller and right_smaller:
+                            new_tab = deepcopy(tab)
+                            new_tab[i][j] = num
+                            yield from fill_tableau(new_tab, num + 1)
 
-
-def _fill_unfinished_tableau(tableau, numbers):
-    possible_placements = _enumerate_next_placements(tableau)
-    val = numbers.pop()
-    new_tableaus = []
-    for i, j in possible_placements:
-        new_tableau = deepcopy(tableau)
-        new_tableau[i][j] = val
-        new_tableaus.append(new_tableau)
-    if len(numbers) == 0:
-        return [YoungTableau(t) for t in new_tableaus]
-    else:
-        all_tableaus = []
-        for t in new_tableaus:
-            all_tableaus += _fill_unfinished_tableau(t, deepcopy(numbers))
-        return all_tableaus
-
-
-def enumerate_standard_tableau(partition_shape: tuple[int]) -> list[YoungTableau]:
-    _check_shape(partition_shape)
-    n = sum(partition_shape)
-    base_tableau = [[-1] * base_len for base_len in partition_shape]
-    numbers = list(range(n))
-    numbers.reverse()
-    base_tableau[0][0] = numbers.pop()
-    all_tableaus = _fill_unfinished_tableau(base_tableau, numbers)
-    return sorted(all_tableaus)
+    yield from fill_tableau(tableau, 2)

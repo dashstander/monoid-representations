@@ -1,5 +1,5 @@
 from copy import deepcopy
-from functools import reduce
+from functools import reduce, total_ordering
 from itertools import product
 import math
 import numpy as np
@@ -7,6 +7,7 @@ from operator import mul
 import torch
 
 
+@total_ordering
 class DihedralElement:
 
     def __init__(self, rot: int, ref: int, n: int):
@@ -19,6 +20,19 @@ class DihedralElement:
     
     def __hash__(self):
         return hash(str(self))
+    
+    def __eq__(self, other):
+        if not isinstance(other, DihedralElement):
+            other = DihedralElement(*other)
+        return (self.n == other.n) and (self.sigma == other.sigma)
+
+
+    def __lt__(self, other):
+        if not isinstance(other, DihedralElement):
+            other = DihedralElement(*other)
+        if (self.n != other.n):
+            raise ValueError('Can only compare two elements from the same group')
+        return self.sigma < other.sigma
     
     @property
     def sigma(self):
@@ -103,7 +117,11 @@ class DihedralIrrep:
         self.n = n
         self.conjugacy_class = conjugacy_class
         self.group = DihedralElement.full_group(n)
-
+        if isinstance(conjugacy_class[0], int) and conjugacy_class[1] == 0:
+            self.dim = 2
+        else:
+            self.dim = 1
+        
     def _trivial_irrep(self):
         return {r.sigma: torch.ones((1,)) for r in self.group}
     
@@ -144,6 +162,18 @@ class DihedralIrrep:
             raise ValueError(
                 f'Somehow {self.conjugacy_class} is not a proper conjugacy class....'
             )
+    
+    def tensors(self):
+        reps = self.matrix_representations()
+        matrices = [reps[g.sigma] for g in self.group]
+        if self.dim == 1:
+            return torch.tensor(matrices)
+        return torch.stack(
+            [
+                torch.flatten(mat) for mat in matrices
+            ],
+            dim=0
+        )
 
 
 class ProductDihedralIrrep:
@@ -169,4 +199,5 @@ class ProductDihedralIrrep:
             matrices = [self.irreps[i][el] for i, el in enumerate(key)]
             reps[key] = reduce(torch.kron, matrices)
         return reps
+    
 

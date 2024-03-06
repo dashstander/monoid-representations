@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from .permutations import Permutation
-from .tableau import enumerate_standard_tableau
+from .tableau import generate_standard_young_tableaux
 
 
 def adj_trans_decomp(i: int, j: int) -> list[tuple[int]]:
@@ -42,7 +42,7 @@ class SnIrrep:
     def __init__(self, n: int, partition: tuple[int]):
         self.n = n
         self.shape = partition
-        self.basis = enumerate_standard_tableau(partition)
+        self.basis = sorted(generate_standard_young_tableaux(partition))
         self.permutations = Permutation.full_group(n)
         self.dim = len(self.basis)
         self._matrices = None
