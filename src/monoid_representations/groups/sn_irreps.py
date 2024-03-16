@@ -36,79 +36,96 @@ def trans_to_one_line(i, j, n):
     return tuple(sigma)
 
 
+def adjacent_transpositions(n):
+    return pairwise(range(n))
+    
+
+def non_adjacent_transpositions(n):
+    return [(i, j) for i, j in combinations(range(n), 2) if i+1 != j]
+
+
+def adjacent_transposition_matrix(tableaux_basis, a, b):
+    dim = len(tableaux_basis)
+    n = tableaux_basis[0].n
+    perm = Permutation.transposition(n, a, b)
+    irrep = np.zeros((dim, dim))
+    def fn(i, j):
+        tableau = tableaux_basis[i]
+        if i == j:
+            d = tableau.transposition_dist(a, b)
+            return 1. / d
+        else:
+            new_tab = perm * tableau
+            if new_tab == tableaux_basis[j]:
+                d = tableau.transposition_dist(a, b)**2
+                return np.sqrt(1 - (1. / d))
+            else:
+                return 0.
+    for x in range(dim):
+        for y in range(dim):
+            irrep[x, y] = fn(x, y)
+    return irrep
+
+
+def generate_transposition_matrices(tableaux_basis):
+    n = tableaux_basis[0].n
+    matrices = {
+        (i, j): adjacent_transposition_matrix(tableaux_basis, i, j) for i, j in adjacent_transpositions(n)
+    }
+    for i, j in non_adjacent_transpositions(n):
+        decomp = [matrices[pair] for pair in adj_trans_decomp(i, j)]
+        matrices[(i, j)] = reduce(lambda x, y: x @ y, decomp)
+    return matrices
+
+
+def matrix_representations(n: int, partition: tuple[int]):
+    Sn = Permutation.full_group(n)
+    basis = sorted(generate_standard_young_tableaux(partition))
+    dim = len(basis)
+    transpo_matrices = generate_transposition_matrices(basis)
+    matrices = {
+        trans_to_one_line(*k, n): v for k, v in transpo_matrices.items()
+    }
+    matrices[tuple(range(n))] = np.eye(dim)
+    for perm in Sn:
+        if perm.sigma in matrices:
+            continue
+        else:
+            cycle_mats = [
+                transpo_matrices[t] for t in perm.transposition_decomposition()
+            ]
+            perm_rep = reduce(lambda x, y: x @ y, cycle_mats)
+            matrices[perm.sigma] = perm_rep
+            if perm.inverse.sigma not in matrices:
+                matrices[perm.inverse.sigma] = perm_rep.T
+    return matrices
+
+
+def irrep_tensor(representations, n):
+    order = len(representations.keys())
+    shape = representations[tuple(range(n))].shape
+    tensor = torch.empty((order, *shape))
+    for permutation, matrix in representations.items():
+        idx = Permutation(permutation).index_of_n()
+        tensor[idx] = matrix
+    return tensor
+
 
 class SnIrrep:
 
-    def __init__(self, n: int, partition: tuple[int]):
+    def __init__(self, n: int, partition: tuple[int], representations):
         self.n = n
-        self.shape = partition
+        self.partition = partition
         self.basis = sorted(generate_standard_young_tableaux(partition))
-        self.permutations = Permutation.full_group(n)
         self.dim = len(self.basis)
-        self._matrices = None
+        self.irreps = representations
+        self.permutations = Permutation.full_group(n)
+        self.index = {perm.sigma: i for i, perm in enumerate(self.permutations)}
 
-    def adjacent_transpositions(self):
-        return pairwise(range(self.n))
-    
-    def non_adjacent_transpositions(self):
-        return [(i, j) for i, j in combinations(range(self.n), 2) if i+1 != j]
-
-    def adj_transposition_matrix(self, a, b):
-        perm = Permutation.transposition(self.n, a, b)
-        irrep = np.zeros((self.dim, self.dim))
-        def fn(i, j):
-            tableau = self.basis[i]
-            #print(tableau)
-            if i == j:
-                d = tableau.transposition_dist(a, b)
-                return 1. / d
-            else:
-                new_tab = perm * tableau
-                if new_tab == self.basis[j]:
-                    d = tableau.transposition_dist(a, b)**2
-                    return np.sqrt(1 - (1. / d))
-                else:
-                    return 0.
-        for x in range(self.dim):
-            for y in range(self.dim):
-                irrep[x, y] = fn(x, y)
-        return irrep
-    
-    def generate_transposition_matrices(self):
-        matrices = {
-            (i, j): self.adj_transposition_matrix(i, j) for i, j in self.adjacent_transpositions()
-        }
-        for i, j in self.non_adjacent_transpositions():
-            decomp = [matrices[pair] for pair in adj_trans_decomp(i, j)]
-            matrices[(i, j)] = reduce(lambda x, y: x @ y, decomp)
-        return matrices
-
-    def matrix_representations(self):
-        if self._matrices is not None:
-            return self._matrices
-        transpo_matrices = self.generate_transposition_matrices()
-        matrices = {
-            trans_to_one_line(*k, self.n): v for k, v in transpo_matrices.items()
-        }
-        matrices[tuple(range(self.n))] = np.eye(self.dim)
-        for perm in self.permutations:
-            if perm.sigma in matrices:
-                continue
-            else:
-                cycle_mats = [
-                    transpo_matrices[t] for t in perm.transposition_decomposition()
-                ]
-                perm_rep = reduce(lambda x, y: x @ y, cycle_mats)
-                matrices[perm.sigma] = perm_rep
-                if perm.inverse.sigma not in matrices:
-                    matrices[perm.inverse.sigma] = perm_rep.T
-        self._matrices = matrices
-        return matrices
-
-    def matrix_tensor(self):
-        matrices = self.matrix_representations()
-        tensors = [torch.asarray(matrices[perm.sigma]).unsqueeze(0) for perm in self.permutations]
-        return torch.concatenate(tensors, dim=0).squeeze()
+    @classmethod
+    def generate_representations(cls, n: int, partition: tuple[int]):
+        matrices = matrix_representations(n, partition)
+        return cls(n, partition, irrep_tensor(matrices))
     
     def alternating_matrix_tensor(self):
         matrices = self.matrix_representations()
